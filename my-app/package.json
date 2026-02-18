@@ -16,6 +16,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "docs": "jsdoc -c jsdoc.json",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -53,6 +54,7 @@
     }
   },
   "devDependencies": {
+    "jsdoc": "^4.0.4",
     "react-test-renderer": "^18.2.0"
   }
 }

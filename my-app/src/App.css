@@ -22,6 +22,11 @@ h1 {
   letter-spacing: 0.01em;
 }
 
+.readme-link {
+  margin: -0.3rem 0 1rem;
+  text-align: center;
+}
+
 form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
