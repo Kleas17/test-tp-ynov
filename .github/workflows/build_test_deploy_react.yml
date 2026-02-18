@@ -30,6 +30,17 @@ jobs:
         run: npm test -- --watchAll=false --coverage
         working-directory: my-app
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: 18ef6b6b-2cad-43d0-81e0-feb3fbca0869
+          files: my-app/coverage/lcov.info
+          fail_ci_if_error: false
+
+      - name: Generate JSDoc
+        run: npm run docs
+        working-directory: my-app
+
       - name: Build project
         run: npm run build
         working-directory: my-app

@@ -26,6 +26,11 @@ const fieldLabels = {
     ville: 'Ville',
 };
 
+/**
+ * Runs all form validations and returns an object keyed by field name.
+ * @param {{nom:string, prenom:string, email:string, dateNaissance:string, cp:string, ville:string}} values
+ * @returns {Record<string, string>} Field-level validation errors.
+ */
 function validateForm(values) {
     const nextErrors = {};
 
@@ -51,6 +56,10 @@ function validateForm(values) {
     return nextErrors;
 }
 
+/**
+ * Registration form page with client-side validations.
+ * @returns {JSX.Element}
+ */
 function App() {
     const [values, setValues] = useState(initialValues);
     const [touched, setTouched] = useState({});
@@ -93,6 +102,11 @@ function App() {
         <div className="App">
             <main className="form-container">
                 <h1>Formulaire utilisateur</h1>
+                <p className="readme-link">
+                    <a href={`${process.env.PUBLIC_URL}/README.md`} target="_blank" rel="noreferrer">
+                        Consulter le README du projet
+                    </a>
+                </p>
                 <form onSubmit={onSubmit} noValidate>
                     {Object.keys(initialValues).map((fieldName) => (
                         <div key={fieldName} className="field-group">

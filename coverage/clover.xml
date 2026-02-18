@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1771415615218" clover="3.2.0">
-  <project timestamp="1771415615218" name="All files">
+<coverage generated="1771418416698" clover="3.2.0">
+  <project timestamp="1771418416699" name="All files">
     <metrics statements="30" coveredstatements="30" conditionals="20" coveredconditionals="20" methods="6" coveredmethods="6" elements="56" coveredelements="56" complexity="0" loc="30" ncloc="30" packages="1" files="2" classes="2"/>
     <file name="module.js" path="C:\Users\kleas\OneDrive\Documents\dev ynov\cours test unitaire\test-tp1-ynov\module.js">
       <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
