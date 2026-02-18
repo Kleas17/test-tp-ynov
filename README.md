@@ -37,8 +37,8 @@ Depuis la racine:
 Depuis `my-app/`:
 
 - `npm install` : installe les dependances
-- `npm test -- --watchAll=false --coverage` : lance les tests React + couverture
-- `npm run docs` : genere la JSDoc de l'app (`my-app/docs/`)
+- `npm test` : lance les tests React + couverture (mode CI, sans watch)
+- `npm run docs` : genere la JSDoc de l'app dans `my-app/public/docs/`
 - `npm run build` : build de production
 
 ## CI/CD
@@ -55,4 +55,5 @@ Le workflow GitHub Actions execute:
 ## Qualite et documentation
 
 - Les composants et validateurs principaux sont documentes en JSDoc.
-- Le README public est expose via `my-app/public/README.md` et disponible en ligne apres build/deploiement.
+- Le README public est expose via `my-app/public/README.md`.
+- La JSDoc est generee dans `my-app/public/docs/` pour etre publiee sur GitHub Pages.
