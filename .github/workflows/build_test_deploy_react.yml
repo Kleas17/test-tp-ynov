@@ -24,12 +24,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: my-app
 
       - name: Run tests
         run: npm test -- --watchAll=false --coverage
+        working-directory: my-app
 
       - name: Build project
         run: npm run build
+        working-directory: my-app
 
       - name: Setup Pages
         uses: actions/configure-pages@v3
@@ -37,7 +40,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build
+          path: my-app/build
 
   deploy:
     needs: build_test
