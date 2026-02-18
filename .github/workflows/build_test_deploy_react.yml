@@ -21,21 +21,23 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: my-app/package-lock.json
 
       - name: Install dependencies
         run: npm install
         working-directory: my-app
 
       - name: Run tests
-        run: npm test -- --watchAll=false --coverage
+        run: npm test
         working-directory: my-app
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          token: 18ef6b6b-2cad-43d0-81e0-feb3fbca0869
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: my-app/coverage/lcov.info
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
       - name: Generate JSDoc
         run: npm run docs
@@ -47,6 +49,10 @@ jobs:
         env:
           PUBLIC_URL: /${{ github.event.repository.name }}
 
+      - name: Verify docs are included in artifact
+        run: test -d build/docs
+        working-directory: my-app
+
       - name: Setup Pages
         uses: actions/configure-pages@v3
 
@@ -54,6 +60,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: my-app/build
+          if-no-files-found: error
 
   deploy:
     needs: build_test
