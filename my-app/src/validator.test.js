@@ -35,6 +35,14 @@ describe('validateAge', () => {
       "L'utilisateur doit avoir au moins 18 ans"
     );
   });
+
+  test('rejette une date dans le futur', () => {
+    expect(() => validateAge(new Date('2999-01-01'))).toThrow('Date de naissance invalide');
+  });
+
+  test('rejette une date trop ancienne (age farfelu)', () => {
+    expect(() => validateAge(new Date('0008-08-08'))).toThrow('Date de naissance invalide');
+  });
 });
 
 describe('validatePostalCode', () => {
@@ -105,6 +113,15 @@ describe('validateEmail', () => {
 
   test('rejette email avec espace', () => {
     expect(() => validateEmail('jean dupont@example.com')).toThrow("Format d'email invalide");
+  });
+
+  test('rejette email avec caracteres farfelus (accent, parenthese)', () => {
+    expect(() => validateEmail('kleas3.marc@gmaa)l.com')).toThrow("Format d'email invalide");
+    expect(() => validateEmail('kleas3.marc@gmaàl.com')).toThrow("Format d'email invalide");
+  });
+
+  test('rejette email avec double point', () => {
+    expect(() => validateEmail('jean..dupont@example.com')).toThrow("Format d'email invalide");
   });
 });
 

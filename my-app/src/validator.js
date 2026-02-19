@@ -31,22 +31,40 @@ const ERROR_MESSAGES = {
  * @returns {number} Age in years.
  */
 function calculateAge(birthDate) {
-  const dateDiff = new Date(Date.now() - birthDate.getTime());
-  return Math.abs(dateDiff.getUTCFullYear() - 1970);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const hasBirthdayPassed = monthDiff > 0 || (monthDiff === 0 && today.getDate() >= birthDate.getDate());
+
+  if (!hasBirthdayPassed) {
+    age -= 1;
+  }
+
+  return age;
 }
 
 /**
- * Validates legal age (18+).
+ * Validates legal age (18+) and date realism.
  * @param {Date} birthDate Birth date to validate.
  * @returns {number} Computed age when valid.
- * @throws {ValidationError} When date is invalid or user is underage.
+ * @throws {ValidationError} When date is invalid, unrealistic, or user is underage.
  */
 function validateAge(birthDate) {
   if (!(birthDate instanceof Date) || Number.isNaN(birthDate.getTime())) {
     throw new ValidationError('INVALID_DATE', ERROR_MESSAGES.INVALID_DATE);
   }
 
+  const now = new Date();
+  if (birthDate > now) {
+    throw new ValidationError('INVALID_DATE', ERROR_MESSAGES.INVALID_DATE);
+  }
+
   const age = calculateAge(birthDate);
+  if (age > 120) {
+    throw new ValidationError('INVALID_DATE', ERROR_MESSAGES.INVALID_DATE);
+  }
+
   if (age < 18) {
     throw new ValidationError('UNDERAGE', ERROR_MESSAGES.UNDERAGE);
   }
@@ -87,7 +105,7 @@ function validateIdentity(value) {
 }
 
 /**
- * Validates email format.
+ * Validates email format with strict ASCII rules.
  * @param {string} email Email address to validate.
  * @throws {ValidationError} When input is invalid.
  */
@@ -96,8 +114,8 @@ function validateEmail(email) {
     throw new ValidationError('INVALID_TYPE', ERROR_MESSAGES.INVALID_EMAIL_TYPE);
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  const emailRegex = /^[A-Za-z0-9](?:[A-Za-z0-9._%+-]{0,62}[A-Za-z0-9])?@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+  if (!emailRegex.test(email) || email.includes('..')) {
     throw new ValidationError('INVALID_EMAIL', ERROR_MESSAGES.INVALID_EMAIL);
   }
 }
