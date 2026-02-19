@@ -11,6 +11,7 @@ Application React de formulaire utilisateur avec validations metier, tests autom
 - Validation client complete (identite, email, date de naissance, code postal)
 - Sauvegarde locale des donnees (`localStorage`)
 - Feedback utilisateur (erreurs champ + message de confirmation)
+- Navigation SPA multi-pages (`/` et `/register`) avec etat partage
 - Couverture de tests exigeante (seuil global 100% sur l'app React)
 
 ## Stack
@@ -38,8 +39,20 @@ Depuis `my-app/`:
 
 - `npm install` : installe les dependances
 - `npm test` : lance les tests React + couverture (mode CI, sans watch)
+- `npm run cypress:open:chrome` : lance Cypress en mode interactif (E2E)
+- `npm run cypress:run` : lance les tests Cypress en headless (E2E)
 - `npm run docs` : genere la JSDoc de l'app dans `my-app/public/docs/`
 - `npm run build` : build de production
+
+## Tests E2E
+
+- Outil: Cypress
+- Spec principale: `my-app/cypress/e2e/navigation.cy.js`
+- Scenarios couverts:
+  - parcours nominal complet (accueil -> formulaire -> inscription -> retour accueil)
+  - parcours erreur (doublon email) avec verification de persistance compteur/liste
+  - cas farfelus par champ (nom, prenom, ville, email, date, code postal)
+  - robustesse au `localStorage` corrompu/non conforme et au rechargement
 
 ## CI/CD
 
@@ -47,10 +60,11 @@ Le workflow GitHub Actions execute:
 
 1. installation des dependances
 2. tests + couverture
-3. upload de couverture vers Codecov
-4. generation JSDoc
-5. build React avec `PUBLIC_URL` adapte a GitHub Pages
-6. publication sur GitHub Pages
+3. tests E2E Cypress headless
+4. upload de couverture vers Codecov
+5. generation JSDoc
+6. build React avec `PUBLIC_URL` adapte a GitHub Pages
+7. publication sur GitHub Pages
 
 ## Qualite et documentation
 
