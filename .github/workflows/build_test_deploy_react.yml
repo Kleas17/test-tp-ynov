@@ -32,6 +32,15 @@ jobs:
         run: npm test
         working-directory: my-app
 
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: my-app
+          install: false
+          start: npm start
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

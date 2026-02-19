@@ -1,0 +1,10 @@
+{
+  "validUser": {
+    "nom": "Martin",
+    "prenom": "Julie",
+    "email": "julie.martin@example.com",
+    "dateNaissance": "1990-01-01",
+    "cp": "69001",
+    "ville": "Lyon"
+  }
+}

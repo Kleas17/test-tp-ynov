@@ -1,9 +1,10 @@
-import {
+﻿import {
   ValidationError,
   validateAge,
   validateEmail,
   validateIdentity,
   validatePostalCode,
+  validateUniqueEmail,
 } from './validator';
 
 describe('ValidationError', () => {
@@ -43,20 +44,20 @@ describe('validatePostalCode', () => {
 
   test('rejette un type non string', () => {
     expect(() => validatePostalCode(75015)).toThrow(
-      'Le code postal doit etre une chaine de caracteres'
+      'Le code postal doit être une chaîne de caractères'
     );
   });
 
   test('rejette un code avec lettres', () => {
-    expect(() => validatePostalCode('75A15')).toThrow('Code postal francais invalide');
+    expect(() => validatePostalCode('75A15')).toThrow('Code postal français invalide');
   });
 
   test('rejette un code trop court', () => {
-    expect(() => validatePostalCode('1234')).toThrow('Code postal francais invalide');
+    expect(() => validatePostalCode('1234')).toThrow('Code postal français invalide');
   });
 
   test('rejette un code trop long', () => {
-    expect(() => validatePostalCode('123456')).toThrow('Code postal francais invalide');
+    expect(() => validatePostalCode('123456')).toThrow('Code postal français invalide');
   });
 });
 
@@ -71,21 +72,21 @@ describe('validateIdentity', () => {
 
   test('rejette type non string', () => {
     expect(() => validateIdentity(null)).toThrow(
-      'Le nom ou le prenom doit etre une chaine de caracteres'
+      'Le nom ou le prénom doit être une chaîne de caractères'
     );
   });
 
   test('rejette contenu HTML', () => {
-    expect(() => validateIdentity('<b>Jean</b>')).toThrow('Contenu HTML detecte');
+    expect(() => validateIdentity('<b>Jean</b>')).toThrow('Contenu HTML détecté');
   });
 
   test('rejette chiffres et symboles', () => {
-    expect(() => validateIdentity('Jean123')).toThrow('Caracteres invalides dans le nom');
-    expect(() => validateIdentity('Jean!')).toThrow('Caracteres invalides dans le nom');
+    expect(() => validateIdentity('Jean123')).toThrow('Caractères invalides dans le nom');
+    expect(() => validateIdentity('Jean!')).toThrow('Caractères invalides dans le nom');
   });
 
   test('rejette chaine vide', () => {
-    expect(() => validateIdentity('')).toThrow('Caracteres invalides dans le nom');
+    expect(() => validateIdentity('')).toThrow('Caractères invalides dans le nom');
   });
 });
 
@@ -95,7 +96,7 @@ describe('validateEmail', () => {
   });
 
   test('rejette type non string', () => {
-    expect(() => validateEmail(undefined)).toThrow("L'email doit etre une chaine de caracteres");
+    expect(() => validateEmail(undefined)).toThrow("L'email doit être une chaîne de caractères");
   });
 
   test('rejette format invalide', () => {
@@ -104,5 +105,31 @@ describe('validateEmail', () => {
 
   test('rejette email avec espace', () => {
     expect(() => validateEmail('jean dupont@example.com')).toThrow("Format d'email invalide");
+  });
+});
+
+describe('validateUniqueEmail', () => {
+  test('accepte un email non present', () => {
+    expect(() =>
+      validateUniqueEmail('new@example.com', [{ email: 'jean.dupont@example.com' }])
+    ).not.toThrow();
+  });
+
+  test('rejette un email deja present', () => {
+    expect(() =>
+      validateUniqueEmail('jean.dupont@example.com', [{ email: 'jean.dupont@example.com' }])
+    ).toThrow('Cet email est déjà utilisé');
+  });
+
+  test('compare sans tenir compte de la casse', () => {
+    expect(() =>
+      validateUniqueEmail('JEAN.DUPONT@example.com', [{ email: 'jean.dupont@example.com' }])
+    ).toThrow('Cet email est déjà utilisé');
+  });
+
+  test('ignore les entrees invalides dans la liste', () => {
+    expect(() =>
+      validateUniqueEmail('new@example.com', [null, { email: 42 }, { notEmail: true }])
+    ).not.toThrow();
   });
 });

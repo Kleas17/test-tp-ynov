@@ -15,13 +15,14 @@ class ValidationError extends Error {
 const ERROR_MESSAGES = {
   INVALID_DATE: 'Date de naissance invalide',
   UNDERAGE: "L'utilisateur doit avoir au moins 18 ans",
-  INVALID_POSTAL_TYPE: 'Le code postal doit etre une chaine de caracteres',
-  INVALID_POSTAL_CODE: 'Code postal francais invalide',
-  INVALID_IDENTITY_TYPE: "Le nom ou le prenom doit etre une chaine de caracteres",
-  XSS_DETECTED: 'Contenu HTML detecte',
-  INVALID_NAME: 'Caracteres invalides dans le nom',
-  INVALID_EMAIL_TYPE: "L'email doit etre une chaine de caracteres",
+  INVALID_POSTAL_TYPE: 'Le code postal doit être une chaîne de caractères',
+  INVALID_POSTAL_CODE: 'Code postal français invalide',
+  INVALID_IDENTITY_TYPE: "Le nom ou le prénom doit être une chaîne de caractères",
+  XSS_DETECTED: 'Contenu HTML détecté',
+  INVALID_NAME: 'Caractères invalides dans le nom',
+  INVALID_EMAIL_TYPE: "L'email doit être une chaîne de caractères",
   INVALID_EMAIL: "Format d'email invalide",
+  DUPLICATE_EMAIL: 'Cet email est déjà utilisé',
 };
 
 /**
@@ -101,10 +102,31 @@ function validateEmail(email) {
   }
 }
 
+/**
+ * Ensures an email does not already exist in the user collection.
+ * @param {string} email Email to check.
+ * @param {Array<{email:string}>} users Registered users.
+ * @throws {ValidationError} When email is already registered.
+ */
+function validateUniqueEmail(email, users) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const found = users.some((user) => {
+    if (!user || typeof user.email !== 'string') {
+      return false;
+    }
+    return user.email.trim().toLowerCase() === normalizedEmail;
+  });
+
+  if (found) {
+    throw new ValidationError('DUPLICATE_EMAIL', ERROR_MESSAGES.DUPLICATE_EMAIL);
+  }
+}
+
 export {
   ValidationError,
   validateAge,
   validatePostalCode,
   validateIdentity,
   validateEmail,
+  validateUniqueEmail,
 };

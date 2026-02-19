@@ -9,6 +9,7 @@
     "@testing-library/user-event": "^13.5.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^6.28.0",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
@@ -16,6 +17,12 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --coverage --watchAll=false",
+    "cypress:open": "cypress open",
+    "cypress:open:chrome": "cypress open --browser chrome",
+    "cypress:open:edge": "cypress open --browser edge",
+    "cypress:run": "cypress run",
+    "cypress:run:chrome": "cypress run --browser chrome",
+    "e2e": "cypress run",
     "docs": "jsdoc -R ../README.md -c jsdoc.config.json -r -d public/docs",
     "eject": "react-scripts eject"
   },
@@ -54,6 +61,7 @@
     }
   },
   "devDependencies": {
+    "cypress": "^13.17.0",
     "jsdoc": "^4.0.4",
     "react-test-renderer": "^18.2.0"
   }

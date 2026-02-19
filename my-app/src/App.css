@@ -22,6 +22,17 @@ h1 {
   letter-spacing: 0.01em;
 }
 
+.registered-list {
+  margin: 0.6rem 0 1rem;
+  padding-left: 1.15rem;
+}
+
+.registered-item {
+  margin-bottom: 0.3rem;
+  color: #204b7f;
+  font-weight: 600;
+}
+
 .readme-link {
   margin: -0.3rem 0 1rem;
   text-align: center;
@@ -94,11 +105,66 @@ input[aria-invalid="true"] {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
 }
 
 .submit-button.disabled {
   background: #f4a76e;
   cursor: not-allowed;
+}
+
+.submit-button:not(.disabled):hover {
+  background: #02376f;
+  transform: translateY(-1px);
+}
+
+.submit-button:not(.disabled):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(47, 115, 190, 0.22);
+}
+
+.action-button {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.12s ease, box-shadow 0.2s ease;
+}
+
+.action-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(47, 115, 190, 0.22);
+}
+
+.primary-action {
+  background: #03448d;
+  color: #ffffff;
+}
+
+.primary-action:hover {
+  background: #02376f;
+  transform: translateY(-1px);
+}
+
+.secondary-action {
+  grid-column: 1 / -1;
+  margin-top: 0.45rem;
+  background: #ecf3ff;
+  color: #0f3f75;
+  border: 1px solid #c6daf8;
+}
+
+.secondary-action:hover {
+  background: #dfeeff;
+}
+
+.link-button {
+  box-sizing: border-box;
 }
 
 .toast {
@@ -122,5 +188,9 @@ input[aria-invalid="true"] {
 
   .submit-button {
     margin-top: 0.2rem;
+  }
+
+  .secondary-action {
+    margin-top: 0.3rem;
   }
 }
