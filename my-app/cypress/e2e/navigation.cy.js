@@ -1,4 +1,4 @@
-﻿describe('Navigation SPA inscription', () => {
+describe('Navigation SPA inscription', () => {
   const user = {
     nom: 'Martin',
     prenom: 'Julie',

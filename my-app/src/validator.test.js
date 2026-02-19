@@ -1,4 +1,4 @@
-﻿import {
+import {
   ValidationError,
   validateAge,
   validateEmail,
