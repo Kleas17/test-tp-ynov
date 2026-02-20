@@ -1,31 +1,33 @@
-# Test TP1 Ynov
+﻿# Test TP1 Ynov
 
-Application React de formulaire utilisateur avec validations metier, tests automatises et deploiement continu sur GitHub Pages.
+Application React de formulaire utilisateur avec validations métier, tests automatisés et déploiement continu sur GitHub Pages.
 
 ## URL de production
 
 - https://kleas17.github.io/test-tp-ynov/
 
-## Fonctionnalites
+## Fonctionnalités
 
-- Validation client complete (identite, email, date de naissance, code postal)
-- Sauvegarde locale des donnees (`localStorage`)
-- Feedback utilisateur (erreurs champ + message de confirmation)
-- Navigation SPA multi-pages (`/` et `/register`) avec etat partage
-- Couverture de tests exigeante (seuil global 100% sur l'app React)
+- Validation client complète (identité, email, date de naissance, code postal)
+- Chargement/sauvegarde via API (`axios`) au lieu de `localStorage`
+- Gestion des erreurs backend :
+  - `400` : message métier backend affiché
+  - `500` : message de résilience affiché sans crash
+- Navigation SPA multi-pages (`/` et `/register`) avec état partagé
 
 ## Stack
 
 - React 18 (`react-scripts` 5)
 - Jest + Testing Library
-- JSDoc
+- Cypress
+- Axios
 - GitHub Actions + GitHub Pages
 - Codecov
 
 ## Structure
 
 - `my-app/`: application React principale
-- `validator.js`, `module.js`, `__tests__/`: exercices et tests Node a la racine
+- `validator.js`, `module.js`, `__tests__/`: exercices et tests Node à la racine
 - `.github/workflows/build_test_deploy_react.yml`: pipeline CI/CD
 
 ## Commandes utiles
@@ -33,41 +35,42 @@ Application React de formulaire utilisateur avec validations metier, tests autom
 Depuis la racine:
 
 - `npm test` : lance les tests racine (hors `my-app`)
-- `npm run docs` : genere la documentation JSDoc racine (`docs/`)
+- `npm run docs` : génère la documentation JSDoc racine (`docs/`)
 
 Depuis `my-app/`:
 
-- `npm install` : installe les dependances
-- `npm test` : lance les tests React + couverture (mode CI, sans watch)
-- `npm run cypress:open:chrome` : lance Cypress en mode interactif (E2E)
-- `npm run cypress:run` : lance les tests Cypress en headless (E2E)
-- `npm run docs` : genere la JSDoc de l'app dans `my-app/public/docs/`
-- `npm run build` : build de production
+- `npm install`
+- `npm start`
+- `npm test`
+- `npm run cypress:run`
+- `npm run build`
 
-## Tests E2E
+## E2E et Mock réseau
 
-- Outil: Cypress
-- Spec principale: `my-app/cypress/e2e/navigation.cy.js`
-- Scenarios couverts:
-  - parcours nominal complet (accueil -> formulaire -> inscription -> retour accueil)
-  - parcours erreur (doublon email) avec verification de persistance compteur/liste
-  - cas farfelus par champ (nom, prenom, ville, email, date, code postal)
-  - robustesse au `localStorage` corrompu/non conforme et au rechargement
+- Les tests E2E utilisent `cy.intercept` pour bouchonner `GET/POST /users`
+- Les tests Jest mockent `axios` via `jest.mock('axios')`
+- Les scénarios succès, `400` et `500` sont couverts
 
 ## CI/CD
 
-Le workflow GitHub Actions execute:
+Le workflow GitHub Actions exécute:
 
-1. installation des dependances
-2. tests + couverture
+1. installation des dépendances
+2. tests Jest + couverture
 3. tests E2E Cypress headless
-4. upload de couverture vers Codecov
-5. generation JSDoc
-6. build React avec `PUBLIC_URL` adapte a GitHub Pages
-7. publication sur GitHub Pages
+4. upload couverture Codecov
+5. build React + publication GitHub Pages
 
-## Qualite et documentation
+Variables injectées au build et au run Cypress:
 
-- Les composants et validateurs principaux sont documentes en JSDoc.
-- Le README public est expose via `my-app/public/README.md`.
-- La JSDoc est generee dans `my-app/public/docs/` pour etre publiee sur GitHub Pages.
+- `REACT_APP_API_URL=https://jsonplaceholder.typicode.com`
+- `REACT_APP_API_TOKEN=${{ secrets.JSONPLACEHOLDER_TOKEN }}`
+
+## Livraison activité 5
+
+Tag de fin d'étape:
+
+```bash
+git tag activite_5
+git push --tags
+```
