@@ -1,7 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
+import * as apiModule from './api';
 import * as validatorModule from './validator';
+
+jest.mock('./api');
 
 const champs = {
   nom: /^Nom$/i,
@@ -22,10 +25,17 @@ const userValide = {
 };
 
 beforeEach(() => {
-  localStorage.clear();
   jest.restoreAllMocks();
+  jest.clearAllMocks();
   window.history.pushState({}, '', '/');
+  apiModule.getRegistrations.mockResolvedValue([]);
+  apiModule.createRegistration.mockResolvedValue({ id: 1 });
 });
+
+async function renderApp() {
+  render(<App />);
+  await waitFor(() => expect(apiModule.getRegistrations).toHaveBeenCalled());
+}
 
 async function allerAuFormulaire() {
   await userEvent.click(screen.getByRole('link', { name: /ajouter un utilisateur/i }));
@@ -41,42 +51,33 @@ async function remplirFormulaireValide() {
 }
 
 describe('Navigation SPA et formulaire - integration', () => {
-  test('accueil initial: compteur a 0 et liste vide', () => {
-    render(<App />);
+  test('accueil initial: compteur a 0 et liste vide', async () => {
+    await renderApp();
 
     expect(screen.getByText('0 utilisateur(s) inscrit(s)')).toBeInTheDocument();
     expect(screen.getByText('Aucun utilisateur inscrit pour le moment.')).toBeInTheDocument();
   });
 
-  test('hydrate la liste depuis le localStorage', () => {
-    localStorage.setItem('registrations', JSON.stringify([userValide]));
+  test('hydrate la liste depuis l API', async () => {
+    apiModule.getRegistrations.mockResolvedValueOnce([userValide]);
 
-    render(<App />);
+    await renderApp();
 
-    expect(screen.getByText('1 utilisateur(s) inscrit(s)')).toBeInTheDocument();
+    expect(await screen.findByText('1 utilisateur(s) inscrit(s)')).toBeInTheDocument();
     expect(screen.getByText('Martin Julie')).toBeInTheDocument();
   });
 
-  test('json invalide dans localStorage: fallback liste vide', () => {
-    localStorage.setItem('registrations', '{broken');
+  test('erreur API au chargement: fallback liste vide', async () => {
+    apiModule.getRegistrations.mockRejectedValueOnce(new Error('Network Error'));
 
-    render(<App />);
-
-    expect(screen.getByText('0 utilisateur(s) inscrit(s)')).toBeInTheDocument();
-    expect(screen.getByText('Aucun utilisateur inscrit pour le moment.')).toBeInTheDocument();
-  });
-
-  test('format localStorage non tableau: fallback liste vide', () => {
-    localStorage.setItem('registrations', JSON.stringify({ nom: 'NotArray' }));
-
-    render(<App />);
+    await renderApp();
 
     expect(screen.getByText('0 utilisateur(s) inscrit(s)')).toBeInTheDocument();
     expect(screen.getByText('Aucun utilisateur inscrit pour le moment.')).toBeInTheDocument();
   });
 
   test('navigation accueil vers formulaire puis retour accueil', async () => {
-    render(<App />);
+    await renderApp();
 
     await allerAuFormulaire();
     expect(window.location.pathname).toBe('/register');
@@ -88,37 +89,37 @@ describe('Navigation SPA et formulaire - integration', () => {
   });
 
   test('prenom avec chiffres: erreur et blocage submit', async () => {
-    render(<App />);
+    await renderApp();
     await allerAuFormulaire();
 
     await userEvent.type(screen.getByLabelText(champs.prenom), 'Julie9');
 
-    expect(screen.getByText('Caractères invalides dans le nom')).toBeInTheDocument();
+    expect(screen.getByText(/Caractères invalides dans le nom/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /soumettre/i })).toBeDisabled();
   });
 
   test('ville avec symbole: erreur et blocage submit', async () => {
-    render(<App />);
+    await renderApp();
     await allerAuFormulaire();
 
     await userEvent.type(screen.getByLabelText(champs.ville), 'Paris!');
 
-    expect(screen.getByText('Caractères invalides dans le nom')).toBeInTheDocument();
+    expect(screen.getByText(/Caractères invalides dans le nom/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /soumettre/i })).toBeDisabled();
   });
 
   test('email farfelu (accent/parenthese): erreur visible', async () => {
-    render(<App />);
+    await renderApp();
     await allerAuFormulaire();
 
-    await userEvent.type(screen.getByLabelText(champs.email), 'kleas3.marc@gmaà)l.com');
+    await userEvent.type(screen.getByLabelText(champs.email), 'kleas3.marc@gma)l.com');
 
     expect(screen.getByText("Format d'email invalide")).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /soumettre/i })).toBeDisabled();
   });
 
   test('date farfelue (0008): erreur visible', async () => {
-    render(<App />);
+    await renderApp();
     await allerAuFormulaire();
 
     await userEvent.type(screen.getByLabelText(champs.nom), 'Martin');
@@ -133,8 +134,9 @@ describe('Navigation SPA et formulaire - integration', () => {
   });
 
   test('email deja utilise: erreur visible et soumission bloquee', async () => {
-    localStorage.setItem('registrations', JSON.stringify([{ ...userValide }]));
-    render(<App />);
+    apiModule.getRegistrations.mockResolvedValueOnce([{ ...userValide }]);
+    await renderApp();
+    await screen.findByText('1 utilisateur(s) inscrit(s)');
     await allerAuFormulaire();
 
     await userEvent.type(screen.getByLabelText(champs.nom), 'Durand');
@@ -144,36 +146,78 @@ describe('Navigation SPA et formulaire - integration', () => {
     await userEvent.type(screen.getByLabelText(champs.cp), '75001');
     await userEvent.type(screen.getByLabelText(champs.ville), 'Paris');
 
-    expect(screen.getByText('Cet email est déjà utilisé')).toBeInTheDocument();
+    expect(screen.getByText(/Cet email est .*utilis/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /soumettre/i })).toBeDisabled();
   });
 
   test('soumission valide: redirection accueil, compteur et liste mis a jour', async () => {
-    render(<App />);
-    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+    await renderApp();
 
     await allerAuFormulaire();
     await remplirFormulaireValide();
     await userEvent.click(screen.getByRole('button', { name: /soumettre/i }));
 
-    expect(window.location.pathname).toBe('/');
-    expect(screen.getByText('1 utilisateur(s) inscrit(s)')).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    expect(await screen.findByText('1 utilisateur(s) inscrit(s)')).toBeInTheDocument();
     expect(screen.getByText('Martin Julie')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Inscription enregistrée');
 
-    expect(setItemSpy).toHaveBeenCalledWith('registrations', JSON.stringify([userValide]));
-    expect(setItemSpy).toHaveBeenCalledWith('registration', JSON.stringify(userValide));
-    setItemSpy.mockRestore();
+    expect(apiModule.createRegistration).toHaveBeenCalledWith(userValide);
   });
 
-  test('soumission forcee invalide ne sauvegarde rien', async () => {
-    render(<App />);
+  test('soumission invalide ne declenche pas appel API', async () => {
+    await renderApp();
     await allerAuFormulaire();
-    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
 
     fireEvent.submit(screen.getByRole('button', { name: /soumettre/i }).closest('form'));
-    expect(setItemSpy).not.toHaveBeenCalled();
-    setItemSpy.mockRestore();
+    expect(apiModule.createRegistration).not.toHaveBeenCalled();
+  });
+
+  test('echec API a la soumission: reste sur formulaire et affiche erreur', async () => {
+    apiModule.createRegistration.mockRejectedValueOnce(new Error('Network Error'));
+    await renderApp();
+
+    await allerAuFormulaire();
+    await remplirFormulaireValide();
+    await userEvent.click(screen.getByRole('button', { name: /soumettre/i }));
+
+    await waitFor(() => expect(window.location.pathname).toBe('/register'));
+    expect(await screen.findByRole('status')).toHaveTextContent("Erreur lors de l'inscription");
+  });
+
+  test('erreur metier backend 400: affiche le message du serveur', async () => {
+    apiModule.createRegistration.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: { message: 'Cet email est déjà utilisé (back)' },
+      },
+    });
+
+    await renderApp();
+    await allerAuFormulaire();
+    await remplirFormulaireValide();
+    await userEvent.click(screen.getByRole('button', { name: /soumettre/i }));
+
+    await waitFor(() => expect(window.location.pathname).toBe('/register'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Cet email est déjà utilisé (back)');
+  });
+
+  test('erreur serveur 500: affiche une alerte utilisateur resilient', async () => {
+    apiModule.createRegistration.mockRejectedValueOnce({
+      response: {
+        status: 500,
+      },
+    });
+
+    await renderApp();
+    await allerAuFormulaire();
+    await remplirFormulaireValide();
+    await userEvent.click(screen.getByRole('button', { name: /soumettre/i }));
+
+    await waitFor(() => expect(window.location.pathname).toBe('/register'));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Serveur indisponible, veuillez réessayer plus tard.'
+    );
   });
 
   test('erreur technique de validation: fallback affiche', async () => {
@@ -181,7 +225,7 @@ describe('Navigation SPA et formulaire - integration', () => {
       throw new Error('unexpected');
     });
 
-    render(<App />);
+    await renderApp();
     await allerAuFormulaire();
 
     const nomInput = screen.getByLabelText(champs.nom);
@@ -191,4 +235,45 @@ describe('Navigation SPA et formulaire - integration', () => {
     expect(screen.getByText('Erreur de validation')).toBeInTheDocument();
     identitySpy.mockRestore();
   });
+
+  test('snapshot de la page accueil', async () => {
+    const { asFragment } = render(<App />);
+    await waitFor(() => expect(apiModule.getRegistrations).toHaveBeenCalled());
+    expect(asFragment()).toMatchSnapshot();
+  });
+
+  test('ne met pas a jour le state apres unmount pendant le chargement initial', async () => {
+    let resolveRequest;
+    const pendingRequest = new Promise((resolve) => {
+      resolveRequest = resolve;
+    });
+
+    apiModule.getRegistrations.mockReturnValueOnce(pendingRequest);
+    const { unmount } = render(<App />);
+
+    expect(apiModule.getRegistrations).toHaveBeenCalledTimes(1);
+    unmount();
+
+    resolveRequest([userValide]);
+    await waitFor(() => expect(apiModule.getRegistrations).toHaveBeenCalledTimes(1));
+  });
+
+  test('garde un etat sain si le chargement initial echoue apres attente', async () => {
+    let rejectRequest;
+    const pendingRequest = new Promise((_, reject) => {
+      rejectRequest = reject;
+    });
+
+    apiModule.getRegistrations.mockReturnValueOnce(pendingRequest);
+    render(<App />);
+
+    expect(apiModule.getRegistrations).toHaveBeenCalledTimes(1);
+    rejectRequest(new Error('Network Error'));
+
+    await waitFor(() => {
+      expect(screen.getByText('0 utilisateur(s) inscrit(s)')).toBeInTheDocument();
+      expect(screen.getByText('Aucun utilisateur inscrit pour le moment.')).toBeInTheDocument();
+    });
+  });
 });
+

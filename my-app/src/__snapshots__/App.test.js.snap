@@ -1,0 +1,38 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Navigation SPA et formulaire - integration snapshot de la page accueil 1`] = `
+<DocumentFragment>
+  <div
+    class="App"
+  >
+    <main
+      class="form-container"
+    >
+      <section
+        data-cy="home-page"
+      >
+        <h1>
+          Bienvenue sur l'application d'inscription
+        </h1>
+        <p
+          data-cy="registered-count"
+        >
+          0 utilisateur(s) inscrit(s)
+        </p>
+        <p
+          data-cy="empty-list"
+        >
+          Aucun utilisateur inscrit pour le moment.
+        </p>
+        <a
+          class="action-button primary-action link-button"
+          data-cy="go-to-register"
+          href="/register"
+        >
+          Ajouter un utilisateur
+        </a>
+      </section>
+    </main>
+  </div>
+</DocumentFragment>
+`;

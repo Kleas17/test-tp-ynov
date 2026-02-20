@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Validation error used by all business validators.
  */
 class ValidationError extends Error {
