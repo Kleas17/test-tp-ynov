@@ -1,4 +1,4 @@
-﻿import './App.css';
+import './App.css';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import {
