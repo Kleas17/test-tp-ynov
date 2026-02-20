@@ -202,6 +202,25 @@ describe('Navigation SPA et formulaire - integration', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Cet email est déjà utilisé (back)');
   });
 
+  test('erreur metier backend 409: affiche le message du serveur', async () => {
+    apiModule.createRegistration.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { message: 'Conflit: email déjà existant (409)' },
+      },
+    });
+
+    await renderApp();
+    await allerAuFormulaire();
+    await remplirFormulaireValide();
+    await userEvent.click(screen.getByRole('button', { name: /soumettre/i }));
+
+    await waitFor(() => expect(window.location.pathname).toBe('/register'));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Conflit: email déjà existant (409)'
+    );
+  });
+
   test('erreur serveur 500: affiche une alerte utilisateur resilient', async () => {
     apiModule.createRegistration.mockRejectedValueOnce({
       response: {
