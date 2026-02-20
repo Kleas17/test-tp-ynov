@@ -245,5 +245,22 @@
     cy.location('pathname').should('eq', '/register');
     cy.get('[data-cy=success]').should('contain', 'Serveur indisponible, veuillez réessayer plus tard.');
   });
+
+  it('affiche le message metier backend sur erreur 409', () => {
+    visitHomeWithApi([]);
+
+    cy.intercept('POST', '**/users', {
+      statusCode: 409,
+      body: { message: 'Conflit: email déjà existant (409)' },
+    }).as('createUser409');
+
+    goToRegister();
+    fillForm(user);
+    cy.get('[data-cy=submit]').should('be.enabled').click();
+    cy.wait('@createUser409');
+
+    cy.location('pathname').should('eq', '/register');
+    cy.get('[data-cy=success]').should('contain', 'Conflit: email déjà existant (409)');
+  });
 });
 

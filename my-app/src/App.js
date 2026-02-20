@@ -218,7 +218,7 @@ function App() {
       const statusCode = error?.response?.status;
       const backendMessage = error?.response?.data?.message;
 
-      if (statusCode === 400 && backendMessage) {
+      if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500 && backendMessage) {
         setToastMessage(backendMessage);
         return false;
       }
