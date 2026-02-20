@@ -40,6 +40,9 @@ jobs:
           start: npm start
           wait-on: 'http://localhost:3000'
           wait-on-timeout: 120
+        env:
+          REACT_APP_API_URL: https://jsonplaceholder.typicode.com
+          REACT_APP_API_TOKEN: ${{ secrets.JSONPLACEHOLDER_TOKEN }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -57,6 +60,8 @@ jobs:
         working-directory: my-app
         env:
           PUBLIC_URL: /${{ github.event.repository.name }}
+          REACT_APP_API_URL: https://jsonplaceholder.typicode.com
+          REACT_APP_API_TOKEN: ${{ secrets.JSONPLACEHOLDER_TOKEN }}
 
       - name: Verify docs are included in artifact
         run: test -d build/docs
