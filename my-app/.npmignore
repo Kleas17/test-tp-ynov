@@ -1,0 +1,13 @@
+node_modules
+src
+tests
+coverage
+cypress
+public
+.github
+.jest
+.gitignore
+README.md
+TEST_PLAN.md
+jsdoc.config.json
+cypress.config.js

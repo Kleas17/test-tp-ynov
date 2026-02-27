@@ -58,3 +58,48 @@ Le workflow injecte :
 
 - `REACT_APP_API_URL=https://jsonplaceholder.typicode.com`
 - `REACT_APP_API_TOKEN=${{ secrets.JSONPLACEHOLDER_TOKEN }}`
+
+## Publication npm et SemVer
+
+Le package est configuré pour la publication npm avec :
+
+- `name: @kleas17/test-tp1-ynov-react`
+- `version` au format SemVer `MAJOR.MINOR.PATCH`
+- `main: dist/index.js`
+- `files: ["dist"]`
+
+Commandes de versioning prises en charge :
+
+```bash
+npm version major
+npm version minor
+npm version patch
+npm version prerelease
+npm version premajor
+npm version preminor
+npm version prepatch
+npm version patch -m "Upgrade to %s"
+```
+
+Pré-releases supportées :
+
+```bash
+npm run version:alpha   # x.y.z-alpha.n
+npm run version:beta    # x.y.z-beta.n
+npm run version:rc      # x.y.z-rc.n
+```
+
+Validation manuelle de publication :
+
+```bash
+npm run build-npm
+npm adduser
+npm publish
+```
+
+Sécurité :
+
+- Créer un token npm de type `Automation`.
+- Ajouter `NPM_TOKEN` dans `Settings > Secrets and variables > Actions`.
+- Ne jamais commiter un `.npmrc` contenant un token.
+- Ne jamais republier une version existante : incrémenter systématiquement la version avant publication.
