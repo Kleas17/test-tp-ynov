@@ -6,5 +6,6 @@
         "test": "jest --coverage --ci --runInBand --testPathIgnorePatterns=my-app",
         "docs": "jsdoc -c jsdoc.json"
     },
-    "homepage": "https://Kleas17.github.io/test-tp-ynov"
+    "homepage": "https://Kleas17.github.io/test-tp-ynov",
+    "version": "0.1.0"
 }
