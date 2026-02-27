@@ -1,9 +1,9 @@
 {
   "name": "test-tp1-ynov-react-kleas17",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "description": "React application package prepared for automated npm publishing.",
-  "main": "dist/index.js",
+  "main": "dist/library.js",
   "files": [
     "dist"
   ],
@@ -25,7 +25,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "build-npm": "node -e \"process.env.NODE_ENV='production'; const fs=require('fs'); fs.rmSync('dist',{ recursive:true, force:true }); fs.mkdirSync('dist',{ recursive:true });\" && node ./node_modules/@babel/cli/bin/babel.js src --out-dir dist --copy-files --no-copy-ignored --ignore \"**/*.test.js\",\"**/*.spec.js\",\"**/__tests__/**\",\"**/__snapshots__/**\"",
+    "build-npm": "node -e \"process.env.NODE_ENV='production'; const fs=require('fs'); fs.rmSync('dist',{ recursive:true, force:true }); fs.mkdirSync('dist',{ recursive:true });\" && node ./node_modules/@babel/cli/bin/babel.js src --out-dir dist --copy-files && node -e \"const fs=require('fs'); ['dist/App.test.js','dist/api.test.js','dist/validator.test.js','dist/setupTests.js','dist/__snapshots__','dist/App.test.js.snap'].forEach((p)=>fs.rmSync(p,{recursive:true,force:true}));\"",
     "build-npm:unix": "NODE_ENV=production && rm -rf dist && mkdir dist && npx babel src --out-dir dist --copy-files",
     "build-npm:win": "SET NODE_ENV=production && rm -rf dist && mkdir dist && npx babel src --out-dir dist --copy-files",
     "prepublishOnly": "npm run build-npm",
