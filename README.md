@@ -6,6 +6,10 @@ Application React de formulaire utilisateur avec validations métier, tests auto
 
 - https://kleas17.github.io/test-tp-ynov/
 
+## Package npm
+
+- https://www.npmjs.com/package/test-tp1-ynov-react-kleas17?activeTab=readme
+
 ## Fonctionnalités
 
 - Validation client complète (identité, email, date de naissance, code postal)
