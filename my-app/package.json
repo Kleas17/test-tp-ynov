@@ -1,7 +1,15 @@
 {
-  "name": "my-app",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@kleas17/test-tp1-ynov-react",
+  "version": "1.0.0",
+  "private": false,
+  "description": "React application package prepared for automated npm publishing.",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -17,6 +25,21 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build-npm": "node -e \"process.env.NODE_ENV='production'; const fs=require('fs'); fs.rmSync('dist',{ recursive:true, force:true }); fs.mkdirSync('dist',{ recursive:true });\" && node ./node_modules/@babel/cli/bin/babel.js src --out-dir dist --copy-files",
+    "build-npm:unix": "NODE_ENV=production && rm -rf dist && mkdir dist && npx babel src --out-dir dist --copy-files",
+    "build-npm:win": "SET NODE_ENV=production && rm -rf dist && mkdir dist && npx babel src --out-dir dist --copy-files",
+    "prepublishOnly": "npm run build-npm",
+    "version:major": "npm version major",
+    "version:minor": "npm version minor",
+    "version:patch": "npm version patch",
+    "version:prerelease": "npm version prerelease",
+    "version:premajor": "npm version premajor",
+    "version:preminor": "npm version preminor",
+    "version:prepatch": "npm version prepatch",
+    "version:alpha": "npm version prerelease --preid=alpha",
+    "version:beta": "npm version prerelease --preid=beta",
+    "version:rc": "npm version prerelease --preid=rc",
+    "version:patch:message": "npm version patch -m \"Upgrade to %s\"",
     "test": "react-scripts test --coverage --watchAll=false --setupFiles=./.jest/setEnvVars.js",
     "cypress:open": "cypress open",
     "cypress:open:chrome": "cypress open --browser chrome",
@@ -62,6 +85,9 @@
     }
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.5",
+    "@babel/plugin-transform-react-jsx": "^7.27.1",
     "cypress": "^13.17.0",
     "jsdoc": "^4.0.4",
     "react-test-renderer": "^18.2.0"

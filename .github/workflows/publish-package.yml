@@ -1,0 +1,39 @@
+name: Publish Package
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: my-app
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+
+      - run: npm install
+
+      - name: Build and Publish
+        run: |
+          git config --global user.email "ci@bot.com"
+          git config --global user.name "CI Bot"
+          npm run build-npm
+          npm version patch -m "Upgrade to %s"
+          npm publish
+          git push origin HEAD:main --follow-tags
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
