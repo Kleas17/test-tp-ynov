@@ -64,6 +64,7 @@ Le workflow injecte :
 Le package est configuré pour la publication npm avec :
 
 - `name: test-tp1-ynov-react-kleas17`
+- `npm: https://www.npmjs.com/package/test-tp1-ynov-react-kleas17?activeTab=readme`
 - `version` au format SemVer `MAJOR.MINOR.PATCH`
 - `main: dist/index.js`
 - `files: ["dist"]`
