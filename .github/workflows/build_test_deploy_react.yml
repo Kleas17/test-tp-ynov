@@ -2,12 +2,12 @@ name: Build, Test and Deploy React Application
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  build_test:
+  build-and-test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -38,7 +38,7 @@ jobs:
           working-directory: my-app
           install: false
           start: npm start
-          wait-on: 'http://localhost:3000'
+          wait-on: http://localhost:3000
           wait-on-timeout: 120
         env:
           REACT_APP_API_URL: https://jsonplaceholder.typicode.com
@@ -76,8 +76,106 @@ jobs:
           path: my-app/build
           if-no-files-found: error
 
+  publish-npm:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: my-app
+
+    outputs:
+      should_publish: ${{ steps.version_check.outputs.should_publish }}
+      local_version: ${{ steps.version_check.outputs.local_version }}
+      published_version: ${{ steps.version_check.outputs.published_version }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+          cache-dependency-path: my-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compare local and npm versions
+        id: version_check
+        shell: bash
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || true)
+          PUBLISHED_VERSION="${PUBLISHED_VERSION//$'\n'/}"
+
+          SHOULD_PUBLISH=$(node -e "
+            const local = process.argv[1];
+            const remote = process.argv[2];
+            if (!remote) { process.stdout.write('true'); process.exit(0); }
+            function parse(v) {
+              const clean = v.split('+')[0];
+              const [core, pre = ''] = clean.split('-');
+              const [maj, min, pat] = core.split('.').map(Number);
+              return { maj, min, pat, pre: pre ? pre.split('.') : [] };
+            }
+            function cmpId(a, b) {
+              const aNum = /^[0-9]+$/.test(a);
+              const bNum = /^[0-9]+$/.test(b);
+              if (aNum && bNum) return Number(a) - Number(b);
+              if (aNum) return -1;
+              if (bNum) return 1;
+              return a.localeCompare(b);
+            }
+            function compare(a, b) {
+              const A = parse(a);
+              const B = parse(b);
+              for (const key of ['maj', 'min', 'pat']) {
+                if (A[key] !== B[key]) return A[key] - B[key];
+              }
+              if (A.pre.length === 0 && B.pre.length === 0) return 0;
+              if (A.pre.length === 0) return 1;
+              if (B.pre.length === 0) return -1;
+              const length = Math.max(A.pre.length, B.pre.length);
+              for (let i = 0; i < length; i += 1) {
+                if (A.pre[i] === undefined) return -1;
+                if (B.pre[i] === undefined) return 1;
+                const diff = cmpId(A.pre[i], B.pre[i]);
+                if (diff !== 0) return diff;
+              }
+              return 0;
+            }
+            process.stdout.write(compare(local, remote) > 0 ? 'true' : 'false');
+          " "$LOCAL_VERSION" "$PUBLISHED_VERSION")
+
+          echo "local_version=$LOCAL_VERSION" >> "$GITHUB_OUTPUT"
+          echo "published_version=$PUBLISHED_VERSION" >> "$GITHUB_OUTPUT"
+          echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
+
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            echo "Will publish: local=$LOCAL_VERSION, npm=${PUBLISHED_VERSION:-none}"
+          else
+            echo "Skip publish: local=$LOCAL_VERSION is not greater than npm=$PUBLISHED_VERSION"
+          fi
+
+      - name: Build npm package
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: npm run build-npm
+
+      - name: Publish to npm
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   deploy:
-    needs: build_test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: publish-npm
     runs-on: ubuntu-latest
 
     permissions:
