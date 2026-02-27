@@ -129,3 +129,6 @@ Le deploy est conditionne au succes du job de build/test.
 ## Contact
 
 Projet realise dans le cadre du cours Ynov (tests unitaires, CI/CD et documentation).
+
+
+Version : 7.0.0

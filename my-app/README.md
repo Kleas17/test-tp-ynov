@@ -104,3 +104,5 @@ Sécurité :
 - Ajouter `NPM_TOKEN` dans `Settings > Secrets and variables > Actions`.
 - Ne jamais commiter un `.npmrc` contenant un token.
 - Ne jamais republier une version existante : incrémenter systématiquement la version avant publication.
+
+Version : 7.0.0
