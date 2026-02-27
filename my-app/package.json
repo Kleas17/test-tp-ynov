@@ -1,6 +1,6 @@
 {
   "name": "test-tp1-ynov-react-kleas17",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "private": false,
   "description": "React application package prepared for automated npm publishing.",
   "main": "dist/library.js",
