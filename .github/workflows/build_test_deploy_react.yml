@@ -173,9 +173,113 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  deploy:
+  validate-docker-api:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: publish-npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build MySQL image
+        run: docker build -t migration_mysql_ci:latest .
+
+      - name: Build API image
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }} \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest \
+            ./api
+
+      - name: Create network
+        run: docker network create ci_network
+
+      - name: Launch MySQL container
+        run: |
+          docker run -d \
+            --name ci_mysql \
+            --network ci_network \
+            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+            -e MYSQL_DATABASE=ynov_ci \
+            migration_mysql_ci:latest
+
+      - name: Wait for MySQL initialization
+        shell: bash
+        run: |
+          for i in {1..40}; do
+            if docker exec ci_mysql mysql -uroot -p"${{ secrets.MYSQL_ROOT_PASSWORD }}" -e "USE ynov_ci; SELECT COUNT(*) FROM utilisateur;" >/dev/null 2>&1; then
+              echo "MySQL is initialized and queryable."
+              exit 0
+            fi
+            echo "Waiting for MySQL... attempt $i/40"
+            sleep 3
+          done
+          echo "MySQL did not become ready in time."
+          docker logs ci_mysql
+          exit 1
+
+      - name: Launch API container
+        run: |
+          docker run -d \
+            --name ci_api \
+            --network ci_network \
+            -p 8000:8000 \
+            -e MYSQL_HOST=ci_mysql \
+            -e MYSQL_USER=root \
+            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+            -e MYSQL_DATABASE=ynov_ci \
+            -e MYSQL_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+            -e MYSQL_DB=ynov_ci \
+            ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
+
+      - name: Validate /users endpoint with curl
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" http://localhost:8000/users || true)
+            if [ "$HTTP_CODE" = "200" ]; then
+              break
+            fi
+            echo "Waiting for API... attempt $i/30 (HTTP=$HTTP_CODE)"
+            sleep 2
+          done
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API did not return HTTP 200."
+            [ -f response.json ] && cat response.json || true
+            docker logs ci_api || true
+            exit 1
+          fi
+
+          USERS_COUNT=$(jq '.utilisateurs | length' response.json)
+          if [ -z "$USERS_COUNT" ] || [ "$USERS_COUNT" -le 0 ]; then
+            echo "Endpoint returned an empty utilisateurs list."
+            cat response.json
+            exit 1
+          fi
+
+          echo "Validation passed with $USERS_COUNT utilisateurs."
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push API image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
+
+      - name: Cleanup containers
+        if: always()
+        run: |
+          docker rm -f ci_api ci_mysql || true
+          docker network rm ci_network || true
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [publish-npm, validate-docker-api]
     runs-on: ubuntu-latest
 
     permissions:

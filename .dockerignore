@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+my-app/node_modules
+coverage
+docs
+.env
+*.log
+

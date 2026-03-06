@@ -78,3 +78,67 @@ Tag de fin d'étape:
 git tag activite_5
 git push --tags
 ```
+
+## Docker (conforme PDF)
+
+### Fichiers ajoutés
+
+- `Dockerfile` : image MySQL custom
+- `sqlfiles/migration-v001.sql` : création de la base `ynov_ci`
+- `sqlfiles/migration-v002.sql` : création de la table `utilisateur`
+- `.env.example` : variables d'environnement à injecter au run
+- `docker-compose.yml` : lancement simplifié du conteneur MySQL
+
+### Préparation
+
+1. Copier le fichier d'exemple :
+
+```bash
+cp .env.example .env
+```
+
+Sur Windows PowerShell :
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Vérifier la variable `MYSQL_ROOT_PASSWORD` dans `.env`.
+
+### Build de l'image
+
+```bash
+docker build -t migration_mysql .
+```
+
+### Lancer le conteneur (mode docker run, comme dans le PDF)
+
+```bash
+docker run -d --env-file .env --name migration_container -p 3306:3306 migration_mysql
+```
+
+### Lancer le conteneur (mode compose)
+
+```bash
+docker compose up -d --build
+```
+
+### Vérification dans MySQL
+
+```bash
+docker exec -it migration_container bash
+mysql -u root -p
+show databases;
+use ynov_ci;
+show tables;
+```
+
+La base `ynov_ci` et la table `utilisateur` doivent être présentes.
+
+### Arrêt / suppression
+
+```bash
+docker container stop migration_container
+docker container rm migration_container
+docker image rm migration_mysql
+```
