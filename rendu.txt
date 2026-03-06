@@ -1,0 +1,5 @@
+Repository GitHub:
+https://github.com/Kleas17/test-tp1-ynov
+
+Image Docker Hub:
+https://hub.docker.com/r/marcdmynov/ynov-fastapi
