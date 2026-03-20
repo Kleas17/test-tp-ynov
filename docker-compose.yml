@@ -3,15 +3,100 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: migration_mysql
     container_name: migration_container
     env_file:
       - .env
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     restart: unless-stopped
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: ynov_fastapi
+    container_name: ynov_api
+    env_file:
+      - .env
+    environment:
+      MYSQL_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+    volumes:
+      - ./api/main.py:/app/main.py:ro
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  react:
+    build:
+      context: ./my-app
+      dockerfile: Dockerfile
+    image: ynov_react
+    container_name: ynov_react
+    environment:
+      HOST: 0.0.0.0
+      CHOKIDAR_USEPOLLING: "true"
+      REACT_APP_API_URL: "http://localhost:${API_PORT:-8000}"
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${REACT_PORT:-3000}:3000"
+    command: npm start
+    restart: unless-stopped
+    volumes:
+      - ./my-app/package.json:/app/package.json:ro
+      - ./my-app/package-lock.json:/app/package-lock.json:ro
+      - ./my-app/public:/app/public
+      - ./my-app/src:/app/src
+      - /app/node_modules
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  adminer:
+    image: adminer:5.3.0
+    container_name: ynov_adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    restart: unless-stopped
+    networks:
+      - app_network
 
 volumes:
   mysql_data:
 
+networks:
+  app_network:
+    driver: bridge

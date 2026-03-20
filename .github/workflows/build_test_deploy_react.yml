@@ -173,7 +173,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  validate-docker-api:
+  validate-docker-stack:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: publish-npm
     runs-on: ubuntu-latest
@@ -181,56 +181,62 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Build MySQL image
-        run: docker build -t migration_mysql_ci:latest .
+      - name: Setup Node for Cypress smoke test
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: my-app/package-lock.json
 
-      - name: Build API image
+      - name: Create CI env file
         run: |
-          docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }} \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest \
-            ./api
+          cat <<EOF > .env
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE=ynov_ci
+          MYSQL_USER=ynov_app
+          MYSQL_PASSWORD=ci_app_pwd
+          MYSQL_PORT=3306
+          API_PORT=8000
+          ADMINER_PORT=8080
+          REACT_PORT=3000
+          EOF
 
-      - name: Create network
-        run: docker network create ci_network
+      - name: Build and start docker compose stack
+        run: docker compose up -d --build
 
-      - name: Launch MySQL container
-        run: |
-          docker run -d \
-            --name ci_mysql \
-            --network ci_network \
-            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
-            -e MYSQL_DATABASE=ynov_ci \
-            migration_mysql_ci:latest
-
-      - name: Wait for MySQL initialization
+      - name: Wait for API health
         shell: bash
         run: |
           for i in {1..40}; do
-            if docker exec ci_mysql mysql -uroot -p"${{ secrets.MYSQL_ROOT_PASSWORD }}" -e "USE ynov_ci; SELECT COUNT(*) FROM utilisateur;" >/dev/null 2>&1; then
-              echo "MySQL is initialized and queryable."
+            HTTP_CODE=$(curl -s -o api-health.json -w "%{http_code}" http://localhost:8000/health || true)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "API is healthy."
               exit 0
             fi
-            echo "Waiting for MySQL... attempt $i/40"
+            echo "Waiting for API... attempt $i/40 (HTTP=$HTTP_CODE)"
             sleep 3
           done
-          echo "MySQL did not become ready in time."
-          docker logs ci_mysql
+          echo "API did not become ready in time."
+          [ -f api-health.json ] && cat api-health.json || true
+          docker compose logs api mysql react || true
           exit 1
 
-      - name: Launch API container
+      - name: Wait for React app
+        shell: bash
         run: |
-          docker run -d \
-            --name ci_api \
-            --network ci_network \
-            -p 8000:8000 \
-            -e MYSQL_HOST=ci_mysql \
-            -e MYSQL_USER=root \
-            -e MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
-            -e MYSQL_DATABASE=ynov_ci \
-            -e MYSQL_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }} \
-            -e MYSQL_DB=ynov_ci \
-            ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
+          for i in {1..40}; do
+            HTTP_CODE=$(curl -s -o react-home.html -w "%{http_code}" http://localhost:3000 || true)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "React app is reachable."
+              exit 0
+            fi
+            echo "Waiting for React... attempt $i/40 (HTTP=$HTTP_CODE)"
+            sleep 3
+          done
+          echo "React app did not become ready in time."
+          [ -f react-home.html ] && cat react-home.html || true
+          docker compose logs react || true
+          exit 1
 
       - name: Validate /users endpoint with curl
         shell: bash
@@ -247,18 +253,26 @@ jobs:
           if [ "$HTTP_CODE" != "200" ]; then
             echo "API did not return HTTP 200."
             [ -f response.json ] && cat response.json || true
-            docker logs ci_api || true
+            docker compose logs api || true
             exit 1
           fi
 
-          USERS_COUNT=$(jq '.utilisateurs | length' response.json)
+          USERS_COUNT=$(jq 'if type == "array" then length elif (.utilisateurs? | type) == "array" then .utilisateurs | length else 0 end' response.json)
           if [ -z "$USERS_COUNT" ] || [ "$USERS_COUNT" -le 0 ]; then
-            echo "Endpoint returned an empty utilisateurs list."
+            echo "Endpoint returned an empty users list."
             cat response.json
             exit 1
           fi
 
           echo "Validation passed with $USERS_COUNT utilisateurs."
+
+      - name: Install Cypress dependencies
+        run: npm install
+        working-directory: my-app
+
+      - name: Run live stack Cypress smoke test
+        run: npx cypress run --spec cypress/e2e/live-stack.cy.js
+        working-directory: my-app
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -266,20 +280,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Tag API image
+        run: |
+          docker tag ynov_fastapi ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
+          docker tag ynov_fastapi ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
+
       - name: Push API image to Docker Hub
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
 
+      - name: Print docker compose logs on failure
+        if: failure()
+        run: docker compose logs
+
       - name: Cleanup containers
         if: always()
-        run: |
-          docker rm -f ci_api ci_mysql || true
-          docker network rm ci_network || true
+        run: docker compose down -v --remove-orphans
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [publish-npm, validate-docker-api]
+    needs: [publish-npm, validate-docker-stack]
     runs-on: ubuntu-latest
 
     permissions:

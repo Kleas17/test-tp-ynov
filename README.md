@@ -64,6 +64,8 @@ Le workflow GitHub Actions exécute:
 3. tests E2E Cypress headless
 4. upload couverture Codecov
 5. build React + publication GitHub Pages
+6. démarrage de la stack Docker Compose complète
+7. smoke test Cypress sur la stack live + push de l'image API
 
 Variables injectées au build et au run Cypress:
 
@@ -81,13 +83,18 @@ git push --tags
 
 ## Docker (conforme PDF)
 
-### Fichiers ajoutés
+### Fichiers Docker présents
 
-- `Dockerfile` : image MySQL custom
+- `Dockerfile` : image MySQL custom basée sur l'image officielle `mysql:8.4`
 - `sqlfiles/migration-v001.sql` : création de la base `ynov_ci`
 - `sqlfiles/migration-v002.sql` : création de la table `utilisateur`
-- `.env.example` : variables d'environnement à injecter au run
-- `docker-compose.yml` : lancement simplifié du conteneur MySQL
+- `sqlfiles/migration-v003.sql` : insertion de données de démonstration
+- `.env.example` : variables d'environnement injectées au run
+- `.dockerignore` : réduction du contexte de build
+- `docker-compose.yml` : orchestration MySQL + API FastAPI + React + Adminer
+- `api/Dockerfile` : image de l'API Python
+- `my-app/Dockerfile` : image Node/React pour lancer la webapp
+- `api/.dockerignore` et `my-app/.dockerignore` : optimisation des contextes de build
 
 ### Préparation
 
@@ -103,7 +110,20 @@ Sur Windows PowerShell :
 Copy-Item .env.example .env
 ```
 
-2. Vérifier la variable `MYSQL_ROOT_PASSWORD` dans `.env`.
+2. Vérifier les variables dans `.env`.
+
+Exemple :
+
+```env
+MYSQL_ROOT_PASSWORD=ynovpwd
+MYSQL_DATABASE=ynov_ci
+MYSQL_USER=ynov_app
+MYSQL_PASSWORD=ynov_app_pwd
+MYSQL_PORT=3306
+API_PORT=8000
+ADMINER_PORT=8080
+REACT_PORT=3000
+```
 
 ### Build de l'image
 
@@ -111,17 +131,60 @@ Copy-Item .env.example .env
 docker build -t migration_mysql .
 ```
 
+Le `Dockerfile` MySQL reste volontairement minimal.
+Les scripts SQL sont embarqués dans l'image via `/docker-entrypoint-initdb.d`, ce qui permet de faire fonctionner aussi bien `docker run` que `docker compose up`.
+
 ### Lancer le conteneur (mode docker run, comme dans le PDF)
 
 ```bash
 docker run -d --env-file .env --name migration_container -p 3306:3306 migration_mysql
 ```
 
-### Lancer le conteneur (mode compose)
+### Lancer la stack (mode compose)
 
 ```bash
 docker compose up -d --build
 ```
+
+Cela démarre :
+
+- MySQL sur `localhost:3306`
+- l'API FastAPI sur `http://localhost:8000`
+- le front React sur `http://localhost:3000`
+- Adminer sur `http://localhost:8080`
+
+Les services communiquent via un réseau Docker `bridge` explicite nommé `app_network`.
+La base MySQL persiste dans le volume `mysql_data`.
+Le service React est construit depuis `my-app/Dockerfile`, monte uniquement les fichiers utiles (`src/`, `public/`, `package*.json`) et démarre via `npm start`.
+L'image MySQL est rebuildée depuis le `Dockerfile` racine avec les migrations SQL intégrées.
+
+Important : les scripts SQL d'initialisation ne sont rejoués que si le volume MySQL est vide.
+Pour réinitialiser complètement la base après un changement de migration :
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+### Vérification de l'API
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/users
+curl http://localhost:3000
+```
+
+### Vérification dans Adminer
+
+Ouvrir `http://localhost:8080`, puis se connecter avec :
+
+- Système : `MySQL`
+- Serveur : `mysql`
+- Utilisateur : `root` ou `ynov_app`
+- Mot de passe : valeur définie dans `.env`
+- Base : `ynov_ci`
+
+Le front Dockerisé est déjà configuré pour appeler l'API locale sur `http://localhost:8000`.
 
 ### Vérification dans MySQL
 
@@ -134,6 +197,8 @@ show tables;
 ```
 
 La base `ynov_ci` et la table `utilisateur` doivent être présentes.
+L'endpoint `GET /users` doit également renvoyer les utilisateurs insérés par `migration-v003.sql`.
+La page `http://localhost:3000` doit afficher un compteur strictement supérieur à `0 utilisateur(s) inscrit(s)`.
 
 ### Arrêt / suppression
 
@@ -141,4 +206,10 @@ La base `ynov_ci` et la table `utilisateur` doivent être présentes.
 docker container stop migration_container
 docker container rm migration_container
 docker image rm migration_mysql
+```
+
+Pour la stack compose :
+
+```bash
+docker compose down -v
 ```
