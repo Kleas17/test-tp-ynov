@@ -26,20 +26,22 @@ describe('Docker live stack', () => {
   });
 
   it('affiche les utilisateurs seeds exposes par l API reelle', () => {
+    cy.contains('[data-cy=registered-user]', 'Dupont Alice').should('be.visible');
     readRegisteredCount().should('be.greaterThan', 0);
     cy.get('[data-cy=registered-user]').should('have.length.at.least', 1);
-    cy.contains('[data-cy=registered-user]', 'Dupont Alice').should('be.visible');
   });
 
   it('cree un utilisateur via le formulaire et persiste apres rechargement', () => {
     const uniqueUser = {
-      nom: 'E2E',
+      nom: 'Martin',
       prenom: 'Live',
       email: `e2e.live.${Date.now()}@ynov.local`,
       dateNaissance: '1994-06-15',
       cp: '33000',
       ville: 'Bordeaux',
     };
+
+    cy.contains('[data-cy=registered-user]', 'Dupont Alice').should('be.visible');
 
     readRegisteredCount().then((initialCount) => {
       cy.get('[data-cy=go-to-register]').click();
