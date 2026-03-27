@@ -5,8 +5,11 @@ services:
       dockerfile: Dockerfile
     image: migration_mysql
     container_name: migration_container
-    env_file:
-      - .env
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ynov_ci}
+      MYSQL_USER: ${MYSQL_USER:-app_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     restart: unless-stopped
@@ -27,10 +30,13 @@ services:
       dockerfile: Dockerfile
     image: ynov_fastapi
     container_name: ynov_api
-    env_file:
-      - .env
     environment:
       MYSQL_HOST: mysql
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ynov_ci}
+      MYSQL_USER: ${MYSQL_USER:-app_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_PORT: 3306
+      ENABLE_E2E_TEST_ROUTES: ${ENABLE_E2E_TEST_ROUTES:-false}
     depends_on:
       mysql:
         condition: service_healthy
@@ -57,7 +63,7 @@ services:
     environment:
       HOST: 0.0.0.0
       CHOKIDAR_USEPOLLING: "true"
-      REACT_APP_API_URL: "http://localhost:${API_PORT:-8000}"
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:8000}
     depends_on:
       api:
         condition: service_healthy

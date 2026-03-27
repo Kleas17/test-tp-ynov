@@ -20,6 +20,7 @@ describe('Docker live stack', () => {
   };
 
   beforeEach(() => {
+    cy.resetTestData({ seed: true });
     cy.visit('/');
     cy.get('[data-cy=registered-count]').should('contain', 'utilisateur(s) inscrit(s)');
   });
