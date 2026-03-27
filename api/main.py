@@ -2,12 +2,18 @@ import os
 import time
 
 import mysql.connector
-from fastapi import FastAPI, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI()
+
+DEFAULT_USERS = [
+    ("Dupont", "Alice", "alice.dupont@ynov.local", "1998-04-12", "75001", "Paris"),
+    ("Martin", "Leo", "leo.martin@ynov.local", "1996-09-30", "69002", "Lyon"),
+]
+TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +31,15 @@ class UserCreate(BaseModel):
     dateNaissance: str
     cp: str
     ville: str
+
+
+class TestResetRequest(BaseModel):
+    seed: bool = True
+    users: list[UserCreate] = Field(default_factory=list)
+
+
+class NextCreateUserFaultRequest(BaseModel):
+    statusCode: int = Field(default=500, ge=400, le=599)
 
 
 def get_db_config():
@@ -57,6 +72,53 @@ def get_connection():
         app.state.conn = create_connection()
 
     return app.state.conn
+
+
+def e2e_routes_enabled():
+    return os.getenv("ENABLE_E2E_TEST_ROUTES", "false").strip().lower() in TRUE_ENV_VALUES
+
+
+def assert_e2e_routes_enabled():
+    if not e2e_routes_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+
+def insert_users(cursor, users):
+    if not users:
+        return
+
+    rows = []
+    for user in users:
+        if isinstance(user, UserCreate):
+            rows.append(
+                (
+                    user.nom,
+                    user.prenom,
+                    user.email,
+                    user.dateNaissance,
+                    user.cp,
+                    user.ville,
+                )
+            )
+        else:
+            rows.append(user)
+
+    cursor.executemany(
+        """
+        INSERT INTO utilisateur (nom, prenom, email, date_naissance, code_postal, ville)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        rows,
+    )
+
+
+def consume_next_create_user_fault():
+    status_code = getattr(app.state, "next_create_user_status", None)
+    if status_code is None:
+        return
+
+    app.state.next_create_user_status = None
+    raise HTTPException(status_code=status_code, detail="Injected failure for E2E")
 
 
 @app.on_event("shutdown")
@@ -97,8 +159,39 @@ async def get_users():
         cursor.close()
 
 
+@app.post("/test/reset")
+async def reset_users(request: TestResetRequest | None = None):
+    assert_e2e_routes_enabled()
+    payload = request or TestResetRequest()
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("TRUNCATE TABLE utilisateur")
+        insert_users(cursor, DEFAULT_USERS if payload.seed else [])
+        insert_users(cursor, payload.users)
+        connection.commit()
+        app.state.next_create_user_status = None
+    finally:
+        cursor.close()
+
+    default_users_count = len(DEFAULT_USERS) if payload.seed else 0
+    return {
+        "seed": payload.seed,
+        "count": default_users_count + len(payload.users),
+    }
+
+
+@app.post("/test/faults/next-create-user")
+async def queue_next_create_user_fault(request: NextCreateUserFaultRequest):
+    assert_e2e_routes_enabled()
+    app.state.next_create_user_status = request.statusCode
+    return {"status": "queued", "statusCode": request.statusCode}
+
+
 @app.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate):
+    consume_next_create_user_fault()
     connection = get_connection()
     cursor = connection.cursor()
     user_id = None

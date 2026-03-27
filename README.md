@@ -49,11 +49,12 @@ Depuis `my-app/`:
 - `npm run cypress:run`
 - `npm run build`
 
-## E2E et Mock réseau
+## E2E et appels reels
 
-- Les tests E2E utilisent `cy.intercept` pour bouchonner `GET/POST /users`
-- Les tests Jest mockent `axios` via `jest.mock('axios')`
-- Les scénarios succès, `400` et `500` sont couverts
+- Les specs `my-app/cypress/e2e/live-*.cy.js` tournent contre la stack Docker reelle
+- Aucun mock reseau n'est utilise dans cette suite live
+- L'API expose des routes de preparation E2E uniquement si `ENABLE_E2E_TEST_ROUTES=true`
+- Les tests Jest continuent a mocker `axios` pour les tests unitaires front
 
 ## CI/CD
 
@@ -64,13 +65,16 @@ Le workflow GitHub Actions exécute:
 3. tests E2E Cypress headless
 4. upload couverture Codecov
 5. build React + publication GitHub Pages
-6. démarrage de la stack Docker Compose complète
-7. smoke test Cypress sur la stack live + push de l'image API
+6. demarrage de la stack Docker Compose complete
+7. execution des specs Cypress live sur l'environnement reel
+8. push Docker Hub apres succes total des tests E2E si les secrets Docker Hub sont definis
 
-Variables injectées au build et au run Cypress:
+Secrets GitHub utiles :
 
-- `REACT_APP_API_URL=https://jsonplaceholder.typicode.com`
-- `REACT_APP_API_TOKEN=${{ secrets.JSONPLACEHOLDER_TOKEN }}`
+- `MYSQL_ROOT_PASSWORD`
+- `MYSQL_APP_PASSWORD`
+- `DOCKERHUB_USERNAME` et `DOCKERHUB_TOKEN` pour le push d'image
+- `CODECOV_TOKEN` et `NPM_TOKEN` uniquement pour les integrations optionnelles correspondantes
 
 ## Livraison activité 5
 
@@ -89,41 +93,33 @@ git push --tags
 - `sqlfiles/migration-v001.sql` : création de la base `ynov_ci`
 - `sqlfiles/migration-v002.sql` : création de la table `utilisateur`
 - `sqlfiles/migration-v003.sql` : insertion de données de démonstration
-- `.env.example` : variables d'environnement injectées au run
+- `.env.example` : exemple de variables, sans secrets en clair
 - `.dockerignore` : réduction du contexte de build
 - `docker-compose.yml` : orchestration MySQL + API FastAPI + React + Adminer
 - `api/Dockerfile` : image de l'API Python
 - `my-app/Dockerfile` : image Node/React pour lancer la webapp
 - `api/.dockerignore` et `my-app/.dockerignore` : optimisation des contextes de build
 
-### Préparation
+### Preparation
 
-1. Copier le fichier d'exemple :
+Les secrets ne doivent pas transiter dans un fichier de configuration versionne.
 
-```bash
-cp .env.example .env
-```
-
-Sur Windows PowerShell :
+Sous PowerShell, exportez les variables avant de lancer la stack :
 
 ```powershell
-Copy-Item .env.example .env
+$env:MYSQL_ROOT_PASSWORD='votre-secret-root'
+$env:MYSQL_PASSWORD='votre-secret-app'
+$env:MYSQL_DATABASE='ynov_ci'
+$env:MYSQL_USER='app_user'
+$env:MYSQL_PORT='3306'
+$env:API_PORT='8000'
+$env:ADMINER_PORT='8080'
+$env:REACT_PORT='3000'
+$env:REACT_APP_API_URL='http://localhost:8000'
+$env:ENABLE_E2E_TEST_ROUTES='false'
 ```
 
-2. Vérifier les variables dans `.env`.
-
-Exemple :
-
-```env
-MYSQL_ROOT_PASSWORD=ynovpwd
-MYSQL_DATABASE=ynov_ci
-MYSQL_USER=ynov_app
-MYSQL_PASSWORD=ynov_app_pwd
-MYSQL_PORT=3306
-API_PORT=8000
-ADMINER_PORT=8080
-REACT_PORT=3000
-```
+Le fichier `.env.example` sert uniquement d'aide-memoire pour les noms de variables attendues.
 
 ### Build de l'image
 
@@ -137,7 +133,7 @@ Les scripts SQL sont embarqués dans l'image via `/docker-entrypoint-initdb.d`, 
 ### Lancer le conteneur (mode docker run, comme dans le PDF)
 
 ```bash
-docker run -d --env-file .env --name migration_container -p 3306:3306 migration_mysql
+docker run -d -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" -e MYSQL_DATABASE="$MYSQL_DATABASE" -e MYSQL_USER="$MYSQL_USER" -e MYSQL_PASSWORD="$MYSQL_PASSWORD" --name migration_container -p 3306:3306 migration_mysql
 ```
 
 ### Lancer la stack (mode compose)
@@ -181,7 +177,7 @@ Ouvrir `http://localhost:8080`, puis se connecter avec :
 - Système : `MySQL`
 - Serveur : `mysql`
 - Utilisateur : `root` ou `ynov_app`
-- Mot de passe : valeur définie dans `.env`
+- Mot de passe : valeur exportee dans votre shell
 - Base : `ynov_ci`
 
 Le front Dockerisé est déjà configuré pour appeler l'API locale sur `http://localhost:8000`.
