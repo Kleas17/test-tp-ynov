@@ -44,9 +44,10 @@
     "cypress:open": "cypress open",
     "cypress:open:chrome": "cypress open --browser chrome",
     "cypress:open:edge": "cypress open --browser edge",
-    "cypress:run": "cypress run",
+    "cypress:run": "cypress run --spec \"cypress/e2e/live-*.cy.js\"",
     "cypress:run:chrome": "cypress run --browser chrome",
-    "e2e": "cypress run",
+    "e2e": "cypress run --spec \"cypress/e2e/live-*.cy.js\"",
+    "e2e:mocked": "cypress run --spec \"cypress/e2e/navigation.cy.js\"",
     "docs": "jsdoc -R ../README.md -c jsdoc.config.json -r -d public/docs",
     "eject": "react-scripts eject"
   },
