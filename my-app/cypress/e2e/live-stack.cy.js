@@ -1,6 +1,10 @@
 describe('Docker live stack', () => {
   const apiUrl = Cypress.env('apiUrl') || 'http://localhost:8000';
   const seededEmail = 'alice.dupont@ynov.local';
+  const seedUsers = () =>
+    cy.resetTestData({ seed: true }).then(() =>
+      cy.request(`${apiUrl}/users`).its('body').should('be.an', 'array').and('have.length.at.least', 1)
+    );
 
   const readRegisteredCount = () =>
     cy.get('[data-cy=registered-count]').invoke('text').then((text) => {
@@ -17,18 +21,27 @@ describe('Docker live stack', () => {
     cy.get('[data-cy=dateNaissance]').clear().type(user.dateNaissance);
     cy.get('[data-cy=cp]').clear().type(user.cp);
     cy.get('[data-cy=ville]').clear().type(user.ville);
+
+    cy.get('[data-cy=nom]').should('have.value', user.nom);
+    cy.get('[data-cy=prenom]').should('have.value', user.prenom);
+    cy.get('[data-cy=email]').should('have.value', user.email);
+    cy.get('[data-cy=dateNaissance]').should('have.value', user.dateNaissance);
+    cy.get('[data-cy=cp]').should('have.value', user.cp);
+    cy.get('[data-cy=ville]').should('have.value', user.ville);
   };
 
   beforeEach(() => {
-    cy.resetTestData({ seed: true });
+    seedUsers().as('seededUsers');
     cy.visit('/');
     cy.get('[data-cy=registered-count]').should('contain', 'utilisateur(s) inscrit(s)');
   });
 
   it('affiche les utilisateurs seeds exposes par l API reelle', () => {
-    cy.contains('[data-cy=registered-user]', 'Dupont Alice').should('be.visible');
-    readRegisteredCount().should('be.greaterThan', 0);
-    cy.get('[data-cy=registered-user]').should('have.length.at.least', 1);
+    cy.get('@seededUsers').then((seededUsers) => {
+      cy.contains('[data-cy=registered-user]', 'Dupont Alice').should('be.visible');
+      readRegisteredCount().should('eq', seededUsers.length);
+      cy.get('[data-cy=registered-user]').should('have.length', seededUsers.length);
+    });
   });
 
   it('cree un utilisateur via le formulaire et persiste apres rechargement', () => {
@@ -43,12 +56,14 @@ describe('Docker live stack', () => {
 
     cy.contains('[data-cy=registered-user]', 'Dupont Alice').should('be.visible');
 
-    readRegisteredCount().then((initialCount) => {
+    cy.get('@seededUsers').then((seededUsers) => {
+      const initialCount = seededUsers.length;
+
       cy.get('[data-cy=go-to-register]').click();
       cy.location('pathname').should('eq', '/register');
 
       fillRegistrationForm(uniqueUser);
-      cy.get('[data-cy=submit]').should('be.enabled').click();
+      cy.get('[data-cy=submit]').should('not.be.disabled').click();
 
       cy.location('pathname').should('eq', '/');
       cy.get('[data-cy=success]').should('contain', 'Inscription enregistr');
