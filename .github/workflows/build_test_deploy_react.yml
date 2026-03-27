@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
     strategy:
       matrix:
@@ -32,10 +34,10 @@ jobs:
         working-directory: my-app
 
       - name: Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           files: my-app/coverage/lcov.info
           fail_ci_if_error: true
 
@@ -69,7 +71,7 @@ jobs:
     permissions:
       contents: read
     env:
-      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     defaults:
       run:
         working-directory: my-app
@@ -152,14 +154,14 @@ jobs:
           fi
 
       - name: Build npm package
-        if: steps.version_check.outputs.should_publish == 'true' && env.HAS_NPM_TOKEN == 'true'
+        if: steps.version_check.outputs.should_publish == 'true' && env.NPM_TOKEN != ''
         run: npm run build-npm
 
       - name: Publish to npm
-        if: steps.version_check.outputs.should_publish == 'true' && env.HAS_NPM_TOKEN == 'true'
+        if: steps.version_check.outputs.should_publish == 'true' && env.NPM_TOKEN != ''
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
 
   validate-docker-stack:
     if: github.event_name == 'push'
@@ -176,7 +178,8 @@ jobs:
       REACT_PORT: 3000
       REACT_APP_API_URL: http://localhost:8000
       ENABLE_E2E_TEST_ROUTES: 'true'
-      HAS_DOCKERHUB_SECRETS: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v3
@@ -270,23 +273,23 @@ jobs:
           CYPRESS_apiUrl: http://localhost:8000
 
       - name: Login to Docker Hub
-        if: env.HAS_DOCKERHUB_SECRETS == 'true'
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
 
       - name: Tag API image
-        if: env.HAS_DOCKERHUB_SECRETS == 'true'
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         run: |
-          docker tag ynov_fastapi ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
-          docker tag ynov_fastapi ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
+          docker tag ynov_fastapi ${{ env.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
+          docker tag ynov_fastapi ${{ env.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
 
       - name: Push API image to Docker Hub
-        if: env.HAS_DOCKERHUB_SECRETS == 'true'
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
+          docker push ${{ env.DOCKERHUB_USERNAME }}/ynov-fastapi:${{ github.sha }}
+          docker push ${{ env.DOCKERHUB_USERNAME }}/ynov-fastapi:latest
 
       - name: Print docker compose logs on failure
         if: failure()
