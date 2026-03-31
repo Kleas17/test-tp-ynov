@@ -1,0 +1,65 @@
+---
+- name: Déploiement d'un Registry Docker Sécurisé
+  hosts : registry_hosts
+  become: true
+  vars:
+    project_dir: "/home/ubuntu/registry-stack"
+    # On récupère l'IP publique automatiquement via les facts Ansible
+    public_ip: "{{ ansible_host }}"
+
+  tasks:
+    # 1. Installation des dépendances
+    - name: Mise à jour du cache API
+      apt:
+        update_cache: yes
+
+    - name: Installation de Docker et outils
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - apache2-utils # Pour htpasswd
+          - python3-passlib
+        state: present
+
+    - name: Ajout de l'utilisateur ubuntu au groupe docker
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Création des dossiers
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      loop:
+        - "{{ project_dir }}"
+        - "{{ project_dir }}/auth"
+        - "{{ project_dir }}/data"
+
+    - name: Génération mot de passe (admin/admin123)
+      htpasswd:
+        path: "{{ project_dir }}/auth/registry.password"
+        name: admin
+        password: admin123
+        owner: ubuntu
+        group: ubuntu
+        mode: 0640
+        crypt_scheme: bcrypt
+
+    - name: Copie du compose du registry
+      template:
+        src: registry-docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    # 5. Start
+    - name: Démarrage de la stack
+      command: docker compose up -d
+      args:
+        chdir: "{{ project_dir }}"
