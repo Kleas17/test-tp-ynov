@@ -1,6 +1,9 @@
 .env
 .env.*
 !.env.example
-infra/.terraform/
-infra/terraform.tfstate
-infra/terraform.tfstate.backup
+infra/**/.terraform/
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup
+*.pem
+.idea
+my-app/pnpm-lock.yaml
