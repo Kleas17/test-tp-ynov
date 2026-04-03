@@ -1,0 +1,162 @@
+name: Zero Touch Deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY_IP: ${{ secrets.AWS_REGISTRY_IP }}
+  REGISTRY_USER: "admin"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      # ---------------------------------------------------------------
+      # 1. Checkout
+      # ---------------------------------------------------------------
+      - uses: actions/checkout@v3
+
+      # ---------------------------------------------------------------
+      # 2. Build & Push Docker images to private registry
+      # ---------------------------------------------------------------
+      - name: Configure Docker for insecure registry
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"insecure-registries": ["${{ env.REGISTRY_IP }}:443"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      - name: Login to private registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login https://${{ env.REGISTRY_IP }} -u ${{ env.REGISTRY_USER }} --password-stdin
+
+      - name: Build and push MySQL image
+        run: |
+          docker build -t ${{ env.REGISTRY_IP }}/ynov-mysql:latest -f Dockerfile .
+          docker push ${{ env.REGISTRY_IP }}/ynov-mysql:latest
+
+      - name: Build and push API image
+        run: |
+          docker build -t ${{ env.REGISTRY_IP }}/ynov-api:latest -f api/Dockerfile api/
+          docker push ${{ env.REGISTRY_IP }}/ynov-api:latest
+
+      - name: Build and push React image
+        run: |
+          docker build -t ${{ env.REGISTRY_IP }}/ynov-react:latest -f my-app/Dockerfile my-app/
+          docker push ${{ env.REGISTRY_IP }}/ynov-react:latest
+
+      # ---------------------------------------------------------------
+      # 3. Terraform – provision app EC2
+      # ---------------------------------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: infra/app
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: infra/app
+        run: terraform apply -auto-approve
+
+      # ---------------------------------------------------------------
+      # 4. Bridge – extract outputs and generate Ansible inventory
+      # ---------------------------------------------------------------
+      - name: Extract Terraform outputs
+        id: tf
+        working-directory: infra/app
+        run: |
+          APP_IP=$(terraform output -raw public_ip)
+          echo "app_ip=$APP_IP" >> "$GITHUB_OUTPUT"
+          terraform output -raw private_key > ../../app-key.pem
+          chmod 600 ../../app-key.pem
+
+      - name: Generate Ansible inventory
+        run: |
+          cat > inventory.ini << EOF
+          [app_hosts]
+          ${{ steps.tf.outputs.app_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=$(pwd)/app-key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+          EOF
+          echo "Generated inventory:"
+          cat inventory.ini
+
+      - name: Wait for SSH to become available
+        run: |
+          for i in $(seq 1 30); do
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i app-key.pem ubuntu@${{ steps.tf.outputs.app_ip }} 'echo ok' 2>/dev/null; then
+              echo "SSH is ready"
+              exit 0
+            fi
+            echo "Waiting for SSH... attempt $i/30"
+            sleep 10
+          done
+          echo "SSH not ready after 5 minutes"
+          exit 1
+
+      # ---------------------------------------------------------------
+      # 5. Ansible – configure server and deploy app
+      # ---------------------------------------------------------------
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Run Ansible playbook
+        run: |
+          ansible-playbook ansible/app/playbook.yml \
+            -i inventory.ini \
+            --extra-vars "registry_ip=${{ env.REGISTRY_IP }} \
+              registry_user=${{ env.REGISTRY_USER }} \
+              registry_password=${{ secrets.REGISTRY_PASSWORD }} \
+              mysql_root_password=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+              mysql_password=${{ secrets.MYSQL_APP_PASSWORD }} \
+              mysql_database=ynov_ci \
+              mysql_user=app_user \
+              app_public_ip=${{ steps.tf.outputs.app_ip }}"
+
+      # ---------------------------------------------------------------
+      # 6. Validation – verify the app is responding
+      # ---------------------------------------------------------------
+      - name: Validate API is responding
+        run: |
+          for i in $(seq 1 30); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ steps.tf.outputs.app_ip }}:8000/health || true)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "API is healthy at http://${{ steps.tf.outputs.app_ip }}:8000"
+              exit 0
+            fi
+            echo "Waiting for API... attempt $i/30 (HTTP=$HTTP_CODE)"
+            sleep 10
+          done
+          echo "API validation failed"
+          exit 1
+
+      - name: Validate React is responding
+        run: |
+          for i in $(seq 1 30); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ steps.tf.outputs.app_ip }}:3000 || true)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "React is reachable at http://${{ steps.tf.outputs.app_ip }}:3000"
+              exit 0
+            fi
+            echo "Waiting for React... attempt $i/30 (HTTP=$HTTP_CODE)"
+            sleep 10
+          done
+          echo "React validation failed"
+          exit 1
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "===== DEPLOYMENT SUMMARY ====="
+          echo "React:    http://${{ steps.tf.outputs.app_ip }}:3000"
+          echo "API:      http://${{ steps.tf.outputs.app_ip }}:8000"
+          echo "Adminer:  http://${{ steps.tf.outputs.app_ip }}:8080"
+          echo "Registry: https://${{ env.REGISTRY_IP }}"
+          echo "=============================="

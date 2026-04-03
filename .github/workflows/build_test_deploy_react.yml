@@ -2,8 +2,6 @@ name: Build, Test and Deploy React Application
 
 on:
   push:
-    branches:
-      - main
   pull_request:
     branches: [main]
 
