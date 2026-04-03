@@ -1,0 +1,101 @@
+---
+- name: Deploy Application Stack
+  hosts: app_hosts
+  become: true
+  vars:
+    project_dir: /home/ubuntu/app-stack
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+
+    - name: Install Docker and required tools
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    - name: Reset SSH connection to pick up new group
+      meta: reset_connection
+
+    - name: Configure Docker for insecure registry (self-signed SSL)
+      copy:
+        content: |
+          {
+            "insecure-registries": ["{{ registry_ip }}:443"]
+          }
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Restart Docker daemon
+      systemd:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: Login to private Docker registry
+      command: >
+        docker login https://{{ registry_ip }}
+        -u {{ registry_user }}
+        -p {{ registry_password }}
+      no_log: true
+
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Upload production docker-compose
+      template:
+        src: templates/docker-compose.prod.yml.j2
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Write .env file with secrets
+      copy:
+        content: |
+          MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+          MYSQL_DATABASE={{ mysql_database | default('ynov_ci') }}
+          MYSQL_USER={{ mysql_user | default('app_user') }}
+          MYSQL_PASSWORD={{ mysql_password }}
+          REACT_APP_API_URL=http://{{ app_public_ip }}:8000
+        dest: "{{ project_dir }}/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+      no_log: true
+
+    - name: Pull images from private registry
+      command: docker compose pull
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Start application stack
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Wait for API to become healthy
+      uri:
+        url: http://localhost:8000/health
+        method: GET
+        status_code: 200
+      register: health_result
+      until: health_result.status == 200
+      retries: 30
+      delay: 10

@@ -1,0 +1,105 @@
+---
+- name: Deploy Secure Docker Registry
+  hosts: registry_hosts
+  become: true
+  vars:
+    project_dir: /home/ubuntu/registry-stack
+    ssl_dir: "{{ project_dir }}/ssl"
+    nginx_dir: "{{ project_dir }}/nginx"
+    registry_auth_user: admin
+    registry_auth_password: admin123
+    public_ip: "{{ ansible_host }}"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+
+    - name: Install Docker and required tools
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - apache2-utils
+          - openssl
+          - python3-passlib
+        state: present
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    - name: Create project directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+      loop:
+        - "{{ project_dir }}"
+        - "{{ project_dir }}/auth"
+        - "{{ project_dir }}/data"
+        - "{{ ssl_dir }}"
+        - "{{ nginx_dir }}"
+
+    - name: Generate htpasswd file
+      htpasswd:
+        path: "{{ project_dir }}/auth/registry.password"
+        name: "{{ registry_auth_user }}"
+        password: "{{ registry_auth_password }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0640"
+        crypt_scheme: bcrypt
+
+    - name: Generate self-signed SSL certificate
+      command:
+        argv:
+          - openssl
+          - req
+          - -x509
+          - -nodes
+          - -days
+          - "365"
+          - -newkey
+          - rsa:2048
+          - -keyout
+          - "{{ ssl_dir }}/registry.key"
+          - -out
+          - "{{ ssl_dir }}/registry.crt"
+          - -subj
+          - "/CN={{ public_ip }}"
+
+    - name: Fix SSL file permissions
+      file:
+        path: "{{ item.path }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "{{ ssl_dir }}/registry.key", mode: "0600" }
+        - { path: "{{ ssl_dir }}/registry.crt", mode: "0644" }
+
+    - name: Upload secure docker compose file
+      template:
+        src: registry-docker-compose.yml
+        dest: "{{ project_dir }}/docker-compose.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Upload nginx configuration
+      template:
+        src: nginx.conf.j2
+        dest: "{{ nginx_dir }}/nginx.conf"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Start secure registry stack
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
