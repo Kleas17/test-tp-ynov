@@ -95,7 +95,19 @@
       args:
         chdir: "{{ project_dir }}"
 
-    - name: Start application stack
+    - name: Start MySQL first
+      command: docker compose up -d mysql
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Wait for MySQL to be healthy
+      command: docker inspect --format='{{ '{{' }}.State.Health.Status{{ '}}' }}' migration_container
+      register: mysql_health
+      until: mysql_health.stdout == "healthy"
+      retries: 30
+      delay: 10
+
+    - name: Start remaining services
       command: docker compose up -d --remove-orphans
       args:
         chdir: "{{ project_dir }}"
