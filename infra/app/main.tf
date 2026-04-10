@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -43,18 +47,22 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 resource "tls_private_key" "app_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 resource "aws_key_pair" "app_key" {
-  key_name   = "app-key-terraform"
+  key_name   = "app-key-${random_id.suffix.hex}"
   public_key = tls_private_key.app_key.public_key_openssh
 }
 
 resource "aws_security_group" "app_sg" {
-  name        = "app-server-sg"
+  name        = "app-sg-${random_id.suffix.hex}"
   description = "Allow SSH, React, API and Adminer"
   vpc_id      = data.aws_vpc.default.id
 
