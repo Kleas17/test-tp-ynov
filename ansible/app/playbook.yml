@@ -50,6 +50,25 @@
         -p {{ registry_password }}
       no_log: true
 
+    - name: Create 2GB swap file
+      command: fallocate -l 2G /swapfile
+      args:
+        creates: /swapfile
+
+    - name: Set swap file permissions
+      file:
+        path: /swapfile
+        mode: "0600"
+
+    - name: Format swap file
+      command: mkswap /swapfile
+      args:
+        creates: /swapfile
+
+    - name: Enable swap
+      command: swapon /swapfile
+      ignore_errors: true
+
     - name: Create project directory
       file:
         path: "{{ project_dir }}"
