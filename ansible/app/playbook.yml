@@ -50,23 +50,14 @@
         -p {{ registry_password }}
       no_log: true
 
-    - name: Create 2GB swap file
-      command: fallocate -l 2G /swapfile
+    - name: Create and enable 2GB swap
+      shell: |
+        fallocate -l 2G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
       args:
-        creates: /swapfile
-
-    - name: Set swap file permissions
-      file:
-        path: /swapfile
-        mode: "0600"
-
-    - name: Format swap file
-      command: mkswap /swapfile
-      args:
-        creates: /swapfile
-
-    - name: Enable swap
-      command: swapon /swapfile
+        creates: /proc/swaps
       ignore_errors: true
 
     - name: Create project directory
