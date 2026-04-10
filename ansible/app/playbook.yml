@@ -30,7 +30,7 @@
       copy:
         content: |
           {
-            "insecure-registries": ["{{ registry_ip }}:443"]
+            "insecure-registries": ["{{ registry_ip }}"]
           }
         dest: /etc/docker/daemon.json
         owner: root
