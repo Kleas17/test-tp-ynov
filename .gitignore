@@ -1,6 +1,6 @@
 .env
 .env.*
-!.env.example
+!.env.sample
 infra/**/.terraform/
 infra/**/terraform.tfstate
 infra/**/terraform.tfstate.backup
