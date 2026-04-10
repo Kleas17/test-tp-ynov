@@ -1,4 +1,4 @@
 Lien repo: https://github.com/Kleas17/test-tp-ynov
-IP app: à remplir après deploy
+IP app: 3.238.239.28
 IP registry: 34.226.244.204
 User/password registry: admin / admin123
