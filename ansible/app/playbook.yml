@@ -57,8 +57,7 @@
         mkswap /swapfile
         swapon /swapfile
       args:
-        creates: /proc/swaps
-      ignore_errors: true
+        creates: /swapfile
 
     - name: Create project directory
       file:
@@ -106,6 +105,37 @@
       until: mysql_health.stdout == "healthy"
       retries: 30
       delay: 10
+      ignore_errors: true
+
+    - name: Debug - MySQL container status
+      command: docker ps -a --filter name=migration_container --format '{{ '{{' }}.Status{{ '}}' }}'
+      register: mysql_status
+      when: mysql_health is failed
+
+    - name: Debug - MySQL container logs
+      command: docker logs migration_container --tail 50
+      register: mysql_logs
+      when: mysql_health is failed
+
+    - name: Debug - Show MySQL logs
+      debug:
+        var: mysql_logs.stdout_lines
+      when: mysql_health is failed
+
+    - name: Debug - Show .env file (redacted)
+      command: grep -c 'MYSQL_ROOT_PASSWORD=.' {{ project_dir }}/.env
+      register: env_check
+      when: mysql_health is failed
+
+    - name: Debug - Password check result
+      debug:
+        msg: "MYSQL_ROOT_PASSWORD is {{ 'SET' if env_check.stdout | int > 0 else 'EMPTY' }}"
+      when: mysql_health is failed
+
+    - name: Fail if MySQL not healthy
+      fail:
+        msg: "MySQL failed to become healthy. Check logs above."
+      when: mysql_health is failed
 
     - name: Start remaining services
       command: docker compose up -d --remove-orphans
